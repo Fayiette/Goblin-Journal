@@ -2,7 +2,7 @@
 ## Title: |cFFFFA500Goblin Journal|r
 ## Notes: Daily and monthly financial accounting ledger tracking incoming and outgoing money by category.
 ## Author: Fayiette
-## Version: 1.0.0
+## Version: 1.1.0
 ## License: MIT
 ## IconTexture: Interface\AddOns\Goblin-Journal\Media\coin
 ## SavedVariables: GoblinJournalDB

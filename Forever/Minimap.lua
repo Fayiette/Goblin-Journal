@@ -108,7 +108,7 @@ function MinimapModule:Initialize()
   end
   button:SetMovable(true)
   button:EnableMouse(true)
-  button:RegisterForClicks("AnyUp")
+  button:RegisterForClicks("LeftButtonUp", "RightButtonUp", "MiddleButtonUp")
   button:RegisterForDrag("LeftButton")
   button:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
 
@@ -197,7 +197,8 @@ function MinimapModule:Initialize()
     end
   end)
 
-  button:SetScript("OnUpdate", function(self)
+  local pulseElapsed = 0
+  button:SetScript("OnUpdate", function(self, elapsed)
     if self.isDragging then
       local mx, my = Minimap:GetCenter()
       local px, py = GetCursorPosition()
@@ -207,6 +208,25 @@ function MinimapModule:Initialize()
         local pos = math.deg(math.atan2(py - my, px - mx)) % 360
         GoblinJournalDB.settings.minimapAngle = pos
         UpdateButtonPosition()
+      end
+    end
+
+    -- Visual feedback: pulse border green when session recording is active
+    if Engine and Engine:IsSessionActive() then
+      pulseElapsed = pulseElapsed + (elapsed or 0.016)
+      local pulse = 0.5 + 0.5 * math.sin(pulseElapsed * 4)
+      local r = 0.81 * (1 - pulse) + 0.0 * pulse
+      local g = 0.66 * (1 - pulse) + 1.0 * pulse
+      local b = 0.29 * (1 - pulse) + 0.0 * pulse
+      if self.border then
+        self.border:SetVertexColor(r, g, b, 1)
+      end
+    else
+      if pulseElapsed > 0 then
+        pulseElapsed = 0
+        if self.border then
+          self.border:SetVertexColor(1, 1, 1, 1)
+        end
       end
     end
   end)
@@ -222,11 +242,14 @@ function MinimapModule:Initialize()
         addonTable.UI:Toggle()
       end
     elseif btn == "RightButton" then
-      if addonTable.UI and addonTable.UI.SetToday then
-        addonTable.UI:SetToday()
-        if not addonTable.UI:IsShown() then
-          addonTable.UI:Show()
-        end
+      if addonTable.UI and addonTable.UI.ToggleHUDLock then
+        addonTable.UI:ToggleHUDLock()
+      end
+    elseif btn == "MiddleButton" then
+      if Engine and Engine:IsSessionActive() then
+        Engine:StopSession()
+      elseif Engine then
+        Engine:StartSession()
       end
     end
   end)
@@ -250,14 +273,25 @@ function MinimapModule:Initialize()
       netLabel = "Deficit"
     end
 
-    local netFormatted = UILib:FormatMoneyString(net, true)
-    GameTooltip:AddDoubleLine("Today's Net (" .. netLabel .. "):", netFormatted, 1, 1, 1, netColor.r, netColor.g, netColor.b)
+    local netFormatted = UILib:FormatNetMoneyWithTextures(net)
+    GameTooltip:AddDoubleLine("Today's Net (" .. netLabel .. "):", netFormatted, 1, 1, 1, 1, 1, 1)
     GameTooltip:AddLine(" ")
-    GameTooltip:AddDoubleLine("Income:", UILib:FormatMoneyString(dayData.inTotal, false), 0.7, 0.7, 0.7, C.COLORS.PROFIT_SOFT.r, C.COLORS.PROFIT_SOFT.g, C.COLORS.PROFIT_SOFT.b)
-    GameTooltip:AddDoubleLine("Expenses:", UILib:FormatMoneyString(dayData.outTotal, false), 0.7, 0.7, 0.7, C.COLORS.ORANGE.r, C.COLORS.ORANGE.g, C.COLORS.ORANGE.b)
+    GameTooltip:AddDoubleLine("Income:", UILib:FormatMoneyWithTextures(dayData.inTotal, false), 0.7, 0.7, 0.7, 1, 1, 1)
+    GameTooltip:AddDoubleLine("Expenses:", UILib:FormatMoneyWithTextures(dayData.outTotal, false), 0.7, 0.7, 0.7, 1, 1, 1)
+
+    if Engine and Engine:IsSessionActive() then
+      GameTooltip:AddLine(" ")
+      local elapsed = Engine:GetSessionElapsed()
+      GameTooltip:AddLine("|cFF00FF00Active Session: " .. Engine:FormatElapsed(elapsed) .. "|r", 0, 1, 0)
+    end
+
+    local isLocked = GoblinJournalDB and GoblinJournalDB.settings and GoblinJournalDB.settings.hudLocked
+    local lockStatus = isLocked and "|cFFFF3333Locked|r" or "|cFF00FF00Unlocked|r"
+
     GameTooltip:AddLine(" ")
-    GameTooltip:AddLine("|cFFCFA84ALeft-Click:|r Open Ledger", 0.8, 0.8, 0.8)
-    GameTooltip:AddLine("|cFFCFA84ARight-Click:|r Jump to Today", 0.8, 0.8, 0.8)
+    GameTooltip:AddLine("|cFFCFA84ALeft-Click:|r Toggle Ledger Window", 0.8, 0.8, 0.8)
+    GameTooltip:AddLine("|cFFCFA84ARight-Click:|r Toggle Micro-HUD Lock [" .. lockStatus .. "]", 0.8, 0.8, 0.8)
+    GameTooltip:AddLine("|cFFCFA84AMiddle-Click:|r Start / Stop Session Timer", 0.8, 0.8, 0.8)
     GameTooltip:AddLine("|cFFCFA84ADrag:|r Move Minimap Icon", 0.8, 0.8, 0.8)
     GameTooltip:Show()
   end)

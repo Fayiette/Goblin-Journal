@@ -5,8 +5,16 @@ local C = addonTable.Constants
 
 -- Addon Metadata
 C.ADDON_NAME = addonName or "Goblin-Journal"
-C.VERSION = "1.0.0"
+C.VERSION = "1.1.0"
 C.TITLE = "Goblin Journal"
+
+-- Reset Week Constants (Tuesday 15:00 UTC)
+C.WOW_RESET_EPOCH_OFFSET = 486000
+C.WOW_RESET_CYCLE_SECONDS = 604800
+
+-- Session Timer & History Retention
+C.DEFAULT_SESSION_CAP = 50
+C.SESSION_CAP_OPTIONS = { 50, 100, 200, 0 } -- 0 denotes Unlimited
 
 -- Frame Dimensions
 C.FRAME_WIDTH = 720
@@ -105,5 +113,12 @@ C.DEFAULT_SETTINGS = {
   minimapAngle = 225,
   selectedView = "day",
   selectedScope = "character",
-  pos = { "CENTER", 0, 0 }
+  sessionCap = 50,
+  pos = { "CENTER", 0, 0 },
+  hudShown = true,
+  hudLocked = false,
+  hudPos = { "TOPLEFT", 200, -200 },
+  hudInterval = 5,
+  exportFormat = "csv",
+  audioEnabled = true
 }
