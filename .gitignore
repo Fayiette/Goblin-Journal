@@ -1,0 +1,6 @@
+# Mockups and Visual Prototyping
+mockup/
+
+# Agent Configuration and Customizations
+.agents/
+.agent/
