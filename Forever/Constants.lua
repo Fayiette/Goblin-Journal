@@ -5,7 +5,7 @@ local C = addonTable.Constants
 
 -- Addon Metadata
 C.ADDON_NAME = addonName or "Goblin-Journal"
-C.VERSION = "1.1.0"
+C.VERSION = "1.1.2"
 C.TITLE = "Goblin Journal"
 
 -- Reset Week Constants (Tuesday 15:00 UTC)
@@ -24,6 +24,13 @@ C.CARD_CAT_HEIGHT = 204
 C.CARD_BOTTOM_WIDTH = 700
 C.CARD_BOTTOM_HEIGHT = 180
 C.HERO_BANNER_HEIGHT = 82
+
+-- Bottom Zone Navigation Dimensions
+C.ZONE_ROW_HEIGHT = 20
+C.ZONE_ROW_STEP = 24
+C.ZONE_BASE_HEIGHT = 24
+C.ZONE_MAX_WIDTH = 700
+C.ZONE_MORE_BTN_WIDTH = 58
 
 -- Minimap Button Defaults (matching Plater / LibDBIcon-1.0)
 C.MINIMAP_SIZE = 31

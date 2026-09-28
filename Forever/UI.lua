@@ -16,6 +16,7 @@ local state = {
   selectedZone = "All",
   selectedSessionIndex = nil,
   isSessionDetailActive = false,
+  zoneNavExpanded = false,
 }
 
 -- UI Widget References (Consolidated table to avoid Lua 5.1 60 upvalue limit)
@@ -365,6 +366,7 @@ local function BuildUI()
   -- Export Button next to ruleset badge
   w.btnExport = UILib:CreateButton(header, "Export", 54, 18, function()
     if w.exportModal then
+      UI:CloseAllModals(w.exportModal)
       w.exportModal:Open()
     end
   end)
@@ -1069,15 +1071,20 @@ local function BuildUI()
   -- BOTTOM ZONE NAV BAR (Feature B: Zone & Dungeon Profitability Tracking)
   -----------------------------------------------------------------------------
   w.zoneNavBar = CreateFrame("Frame", nil, w.mainFrame)
-  w.zoneNavBar:SetSize(C.FRAME_WIDTH - 20, 24)
+  w.zoneNavBar:SetSize(C.ZONE_MAX_WIDTH, C.ZONE_BASE_HEIGHT)
   w.zoneNavBar:SetPoint("BOTTOMLEFT", 10, 36)
 
   local zoneLabel = w.zoneNavBar:CreateFontString(nil, "OVERLAY")
   zoneLabel:SetFont(C.FONT_PRIMARY, C.FONT_SIZE_SMALL, "OUTLINE")
   zoneLabel:SetTextColor(C.COLORS.GOLD.r, C.COLORS.GOLD.g, C.COLORS.GOLD.b)
-  zoneLabel:SetPoint("LEFT", 0, 0)
+  zoneLabel:SetPoint("TOPLEFT", 0, -2)
   zoneLabel:SetText("Zone:")
   w.zoneNavLabel = zoneLabel
+
+  w.zoneNavMoreBtn = UILib:CreateZoneMoreButton(w.zoneNavBar, function()
+    UI:ToggleZoneExpand()
+  end)
+  w.zoneNavMoreBtn:Hide()
 
   -----------------------------------------------------------------------------
   -- MODALS & OVERLAYS
@@ -1101,8 +1108,8 @@ local function BuildUI()
     Engine:UpdateWealthGoal(goalId, title, targetGold)
     UI:Refresh()
   end)
-  w.deleteGoalModal = UILib:CreateConfirmationModal(w.mainFrame, "Delete Wealth Goal")
-  w.sessionCapModal = UILib:CreateConfirmationModal(w.mainFrame, "Session Retention Cap")
+  w.deleteGoalModal = UILib:CreateConfirmationModal(w.mainFrame, "Delete Wealth Goal", nil, "GoblinJournalDeleteGoalModal")
+  w.sessionCapModal = UILib:CreateConfirmationModal(w.mainFrame, "Session Retention Cap", nil, "GoblinJournalSessionCapModal")
 
   -- 5. Footer
   local footer = CreateFrame("Frame", nil, w.mainFrame)
@@ -1154,6 +1161,7 @@ local function BuildUI()
 
   local btnSettings = UILib:CreateButton(footer, "Settings", 64, 20, function()
     if w.settingsModal then
+      UI:CloseAllModals(w.settingsModal)
       w.settingsModal:Open()
     end
   end)
@@ -1198,6 +1206,7 @@ local function BuildUI()
 
   function UI:ShowResetConfirmModal()
     if w.resetModal then
+      UI:CloseAllModals(w.resetModal)
       local curScope = (GoblinJournalDB and GoblinJournalDB.settings and GoblinJournalDB.settings.selectedScope) or "character"
       local ctx = {
         date = state.selectedDate or Engine:GetTodayDate(),
@@ -1209,7 +1218,35 @@ local function BuildUI()
     end
   end
 
+  w.mainFrame:HookScript("OnHide", function()
+    UI:CloseAllModals()
+  end)
+
   w.mainFrame:Hide()
+end
+
+function UI:CloseAllModals(except)
+  if w.wealthActionMenu and w.wealthActionMenu ~= except and w.wealthActionMenu:IsShown() then
+    w.wealthActionMenu:Hide()
+  end
+  if w.editGoalModal and w.editGoalModal ~= except and w.editGoalModal:IsShown() then
+    w.editGoalModal:Hide()
+  end
+  if w.deleteGoalModal and w.deleteGoalModal ~= except and w.deleteGoalModal:IsShown() then
+    w.deleteGoalModal:Hide()
+  end
+  if w.sessionCapModal and w.sessionCapModal ~= except and w.sessionCapModal:IsShown() then
+    w.sessionCapModal:Hide()
+  end
+  if w.settingsModal and w.settingsModal ~= except and w.settingsModal:IsShown() then
+    w.settingsModal:Hide()
+  end
+  if w.exportModal and w.exportModal ~= except and w.exportModal:IsShown() then
+    w.exportModal:Hide()
+  end
+  if w.resetModal and w.resetModal ~= except and w.resetModal:IsShown() then
+    w.resetModal:Hide()
+  end
 end
 
 function UI:Initialize()
@@ -1550,10 +1587,12 @@ function UI:RenderWealthView(currentScope)
       end
 
       row.btnManage:SetScript("OnClick", function()
+        UI:CloseAllModals(w.wealthActionMenu)
         w.wealthActionMenu:OpenForGoal(
           goal,
           row.btnManage,
           function(g)
+            UI:CloseAllModals(w.editGoalModal)
             w.editGoalModal:OpenForGoal(g, function(id, newTitle, newTarget)
               Engine:UpdateWealthGoal(id, newTitle, newTarget)
               UI:Refresh()
@@ -1564,6 +1603,7 @@ function UI:RenderWealthView(currentScope)
             UI:Refresh()
           end,
           function(g)
+            UI:CloseAllModals(w.deleteGoalModal)
             w.deleteGoalModal:ShowPrompt(
               string.format("Are you sure you want to delete '%s'?", g.title or "Goal"),
               function()
@@ -1580,8 +1620,29 @@ function UI:RenderWealthView(currentScope)
   end
 end
 
+function UI:ResetFrameHeight()
+  if w.mainFrame and w.mainFrame:GetHeight() ~= C.FRAME_HEIGHT then
+    local top = w.mainFrame:GetTop()
+    local left = w.mainFrame:GetLeft()
+    if top and left then
+      w.mainFrame:ClearAllPoints()
+      w.mainFrame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", left, top)
+    end
+    w.mainFrame:SetHeight(C.FRAME_HEIGHT)
+  end
+  if w.zoneNavBar then
+    w.zoneNavBar:SetHeight(C.ZONE_BASE_HEIGHT)
+  end
+end
+
+function UI:ToggleZoneExpand()
+  state.zoneNavExpanded = not state.zoneNavExpanded
+  self:RefreshZoneNav()
+end
+
 function UI:RefreshZoneNav()
   if state.activeView == "session" or state.activeView == "wealth" then
+    self:ResetFrameHeight()
     w.zoneNavBar:Hide()
     return
   end
@@ -1614,11 +1675,18 @@ function UI:RefreshZoneNav()
     pill:Hide()
   end
 
-  local prevPill = nil
+  local maxBarWidth = C.ZONE_MAX_WIDTH or (C.FRAME_WIDTH - 20)
+  local labelWidth = (w.zoneNavLabel and w.zoneNavLabel:GetStringWidth()) or 36
+  local startX = labelWidth + 10
+  local moreBtnWidth = C.ZONE_MORE_BTN_WIDTH or 58
+
+  -- Pre-measure all pills
+  local pillInfos = {}
+  local totalPillWidth = 0
   for idx, zName in ipairs(availableZones) do
     local pill = w.zonePills[idx]
     if not pill then
-      pill = UILib:CreateTabButton(w.zoneNavBar, zName, 60, 20, function()
+      pill = UILib:CreateTabButton(w.zoneNavBar, zName, 60, C.ZONE_ROW_HEIGHT, function()
         state.selectedZone = pill.zoneName
         UI:Refresh()
       end)
@@ -1627,18 +1695,129 @@ function UI:RefreshZoneNav()
 
     pill.zoneName = zName
     pill:SetText(zName)
-    local textWidth = pill:GetFontString() and pill:GetFontString():GetStringWidth() or 40
-    pill:SetWidth(math.max(40, math.min(130, textWidth + 14)))
+    local fontStr = pill.text or (pill.GetFontString and pill:GetFontString())
+    local textWidth = fontStr and fontStr:GetStringWidth() or 30
+    local pillWidth = math.max(38, math.min(130, math.floor(textWidth + 16)))
+    pill:SetWidth(pillWidth)
+    pill:SetHeight(C.ZONE_ROW_HEIGHT)
     pill:SetActive(zName == state.selectedZone)
-    pill:ClearAllPoints()
-    if not prevPill then
-      pill:SetPoint("LEFT", w.zoneNavLabel, "RIGHT", 8, 0)
-    else
-      pill:SetPoint("LEFT", prevPill, "RIGHT", 4, 0)
-    end
-    pill:Show()
-    prevPill = pill
+    table.insert(pillInfos, { pill = pill, name = zName, width = pillWidth })
+    totalPillWidth = totalPillWidth + pillWidth + 4
   end
+
+  local allFitInRow1 = (startX + totalPillWidth - 4) <= maxBarWidth
+  local rows = { {}, {}, {} }
+  local needsMoreBtn = not allFitInRow1
+
+  if allFitInRow1 then
+    for _, info in ipairs(pillInfos) do
+      table.insert(rows[1], info)
+    end
+  else
+    local row1MaxX = maxBarWidth - moreBtnWidth - 6
+    local curX = startX
+    local curRow = 1
+
+    for _, info in ipairs(pillInfos) do
+      local neededW = info.width + 4
+      if curRow == 1 then
+        if (curX + neededW) <= row1MaxX or #rows[1] < 2 then
+          table.insert(rows[1], info)
+          curX = curX + neededW
+        else
+          curRow = 2
+          curX = startX
+          table.insert(rows[2], info)
+          curX = curX + neededW
+        end
+      elseif curRow == 2 then
+        if (curX + neededW) <= maxBarWidth or #rows[2] < 1 then
+          table.insert(rows[2], info)
+          curX = curX + neededW
+        else
+          curRow = 3
+          curX = startX
+          table.insert(rows[3], info)
+          curX = curX + neededW
+        end
+      else
+        table.insert(rows[3], info)
+      end
+    end
+  end
+
+  -- Position Row 1
+  local curX = startX
+  for _, info in ipairs(rows[1]) do
+    local pill = info.pill
+    pill:ClearAllPoints()
+    pill:SetPoint("TOPLEFT", w.zoneNavBar, "TOPLEFT", curX, -2)
+    pill:Show()
+    curX = curX + info.width + 4
+  end
+
+  -- Position More button on Row 1
+  if needsMoreBtn then
+    w.zoneNavMoreBtn:ClearAllPoints()
+    w.zoneNavMoreBtn:SetPoint("TOPLEFT", w.zoneNavBar, "TOPLEFT", curX + 2, -2)
+    w.zoneNavMoreBtn:SetExpanded(state.zoneNavExpanded)
+    w.zoneNavMoreBtn:Show()
+  else
+    w.zoneNavMoreBtn:Hide()
+  end
+
+  -- Position Row 2
+  local hasRow2 = #rows[2] > 0
+  if hasRow2 and state.zoneNavExpanded then
+    local r2X = startX
+    for _, info in ipairs(rows[2]) do
+      local pill = info.pill
+      pill:ClearAllPoints()
+      pill:SetPoint("TOPLEFT", w.zoneNavBar, "TOPLEFT", r2X, -2 - C.ZONE_ROW_STEP)
+      pill:Show()
+      r2X = r2X + info.width + 4
+    end
+  else
+    for _, info in ipairs(rows[2]) do
+      info.pill:Hide()
+    end
+  end
+
+  -- Position Row 3
+  local hasRow3 = #rows[3] > 0
+  if hasRow3 and state.zoneNavExpanded then
+    local r3X = startX
+    for _, info in ipairs(rows[3]) do
+      local pill = info.pill
+      pill:ClearAllPoints()
+      pill:SetPoint("TOPLEFT", w.zoneNavBar, "TOPLEFT", r3X, -2 - (C.ZONE_ROW_STEP * 2))
+      pill:Show()
+      r3X = r3X + info.width + 4
+    end
+  else
+    for _, info in ipairs(rows[3]) do
+      info.pill:Hide()
+    end
+  end
+
+  -- Adjust frame height shifting downwards
+  local extraHeight = 0
+  if needsMoreBtn and state.zoneNavExpanded then
+    local numRows = 1 + (hasRow2 and 1 or 0) + (hasRow3 and 1 or 0)
+    extraHeight = (numRows - 1) * C.ZONE_ROW_STEP
+  end
+
+  local targetHeight = C.FRAME_HEIGHT + extraHeight
+  if w.mainFrame:GetHeight() ~= targetHeight then
+    local top = w.mainFrame:GetTop()
+    local left = w.mainFrame:GetLeft()
+    if top and left then
+      w.mainFrame:ClearAllPoints()
+      w.mainFrame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", left, top)
+    end
+    w.mainFrame:SetHeight(targetHeight)
+  end
+  w.zoneNavBar:SetHeight(C.ZONE_BASE_HEIGHT + extraHeight)
 end
 
 function UI:UpdateFooterWealthGoal()
@@ -1768,6 +1947,10 @@ function UI:Refresh()
   w.sessionViewContainer:Hide()
   w.wealthViewContainer:Hide()
 
+  if state.activeView ~= "wealth" and w.wealthActionMenu and w.wealthActionMenu:IsShown() then
+    w.wealthActionMenu:Hide()
+  end
+
   if state.activeView == "day" then
     self:RenderDayView(currentScope)
   elseif state.activeView == "week" then
@@ -1825,9 +2008,12 @@ function UI:OnSessionCapClicked(newCap)
       "You have character session records with up to %d sessions.\n\nSetting the cap to %d will immediately delete the %d oldest session(s) via FIFO eviction.\n\nAre you sure you want to proceed?",
       maxCount, newCap, excess
     )
-    w.sessionCapModal:ShowPrompt(prompt, function()
-      Engine:SetSessionCap(newCap)
-    end)
+    if w.sessionCapModal then
+      UI:CloseAllModals(w.sessionCapModal)
+      w.sessionCapModal:ShowPrompt(prompt, function()
+        Engine:SetSessionCap(newCap)
+      end)
+    end
   else
     Engine:SetSessionCap(newCap)
   end
@@ -1997,6 +2183,7 @@ function UI:SetScope(scopeType)
 end
 
 function UI:SetView(viewMode)
+  self:CloseAllModals()
   if state.isSessionDetailActive and viewMode ~= "session" then
     state.isSessionDetailActive = false
   end
@@ -2207,11 +2394,17 @@ SlashCmdList["GOBLINJOURNAL"] = function(msg)
   elseif cmd == "settings" or cmd == "options" or cmd == "config" then
     if not w.mainFrame then UI:Initialize() end
     UI:Show()
-    if w.settingsModal then w.settingsModal:Open() end
+    if w.settingsModal then
+      UI:CloseAllModals(w.settingsModal)
+      w.settingsModal:Open()
+    end
   elseif cmd == "export" then
     if not w.mainFrame then UI:Initialize() end
     UI:Show()
-    if w.exportModal then w.exportModal:Open() end
+    if w.exportModal then
+      UI:CloseAllModals(w.exportModal)
+      w.exportModal:Open()
+    end
   else
     UI:Toggle()
   end

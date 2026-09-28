@@ -1,5 +1,33 @@
 # Changelog
 
+## [1.1.2] - 2026-09-29
+
+- Wealth Goals Context Menu Outside-Click Dismissal:
+  - Added transparent click-catcher and mouse-wheel listeners covering UIParent for the Wealth Goals "Manage" context action menu.
+  - Clicking anywhere outside the menu or scrolling the mouse wheel immediately closes the popup menu.
+  - Clicking the same "Manage" button again toggles the context menu closed.
+  - Registered `GoblinJournalActionMenu` with `UISpecialFrames` to support Escape key dismissal.
+- Modal Backdrop Overlays & Outside-Click Dismissal:
+  - Added `UILib:AttachModalBackdrop` providing a semi-transparent dark backdrop overlay (75% opacity) over the journal frame and a full-screen click-catcher.
+  - Clicking outside the modal dialog box (on the darkened backdrop or anywhere on the game screen) closes the modal dialog.
+  - Applied modal backdrop overlays to `Edit Goal`, `Delete Wealth Goal`, `Goblin Journal Settings`, `Export Financial Ledger`, `Session Retention Cap`, and `Reset Ledger Data`.
+  - Registered unique frame names for each modal in `UISpecialFrames` to ensure Escape key closes the active modal without closing the main frame.
+  - Added automatic edit box focus clearing when dismissing modals.
+- Centralized Modal Exclusivity & Overlapping UI Prevention:
+  - Implemented `UI:CloseAllModals(except)` to ensure only one modal or popup can be active at a time.
+  - Closes all modals on view navigation changes (`UI:SetView`) and when closing the main journal frame.
+  - Intercepts clicks on underlying header and footer buttons while a modal is active, preventing overlapping windows.
+
+## [1.1.1] - 2026-09-28
+
+- Bottom Zone Navigation Multi-Row Expansion:
+  - Fixed zone pill text overlapping caused by unbound FontString in button widget and hardcoded fallback widths.
+  - Dynamically calculates pill width based on actual string width plus horizontal padding (16px).
+  - Added expandable multi-row zone navigation bar with dedicated "More v" / "Less ^" toggle button positioned before the end of the first row when zones exceed one line.
+  - Accommodates 2nd and 3rd rows for characters with many active zones.
+  - Implemented downward frame expansion by pinning the frame's TOPLEFT anchor, shifting only the bottom downward by 24px per extra row without displacing top cards, tables, or header.
+  - Updated visual mockup prototype with an interactive Zone Density Demo scenario switcher (Few, Many, Extreme zones).
+
 ## [1.1.0] - 2026-09-26
 
 - Feature G: WoW Reset Week Accounting View:

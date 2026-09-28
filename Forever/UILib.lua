@@ -184,6 +184,15 @@ function UILib:CreateTabButton(parent, text, width, height, onClick)
   textObj:SetText(text)
   textObj:SetTextColor(C.COLORS.MUTED.r, C.COLORS.MUTED.g, C.COLORS.MUTED.b)
   tab.text = textObj
+  tab:SetFontString(textObj)
+
+  function tab:SetText(newText)
+    self.text:SetText(newText)
+  end
+
+  function tab:GetText()
+    return self.text:GetText()
+  end
 
   tab.bg = tab:CreateTexture(nil, "BACKGROUND")
   tab.bg:SetAllPoints()
@@ -251,6 +260,68 @@ function UILib:CreateTabButton(parent, text, width, height, onClick)
   end
 
   return tab
+end
+
+-- 3b. Zone Navigation More / Less Toggle Button
+function UILib:CreateZoneMoreButton(parent, onClick)
+  local btn = CreateFrame("Button", nil, parent)
+  btn:SetSize(C.ZONE_MORE_BTN_WIDTH or 58, C.ZONE_ROW_HEIGHT or 20)
+
+  local bg = btn:CreateTexture(nil, "BACKGROUND")
+  bg:SetAllPoints()
+  bg:SetColorTexture(0.07, 0.09, 0.14, 0.95)
+  btn.bg = bg
+
+  local border = btn:CreateTexture(nil, "BORDER")
+  border:SetPoint("TOPLEFT", -1, 1)
+  border:SetPoint("BOTTOMRIGHT", 1, -1)
+  border:SetColorTexture(C.COLORS.CARD_BORDER.r, C.COLORS.CARD_BORDER.g, C.COLORS.CARD_BORDER.b, 0.85)
+  btn.border = border
+
+  local text = btn:CreateFontString(nil, "OVERLAY")
+  text:SetFont(C.FONT_PRIMARY, C.FONT_SIZE_SMALL, "")
+  text:SetPoint("CENTER", 0, 0)
+  text:SetText("More v")
+  text:SetTextColor(C.COLORS.GOLD.r, C.COLORS.GOLD.g, C.COLORS.GOLD.b)
+  btn.text = text
+  btn:SetFontString(text)
+
+  btn:SetScript("OnEnter", function(self)
+    self.bg:SetColorTexture(0.12, 0.16, 0.24, 1.0)
+    self.border:SetColorTexture(C.COLORS.GOLD.r, C.COLORS.GOLD.g, C.COLORS.GOLD.b, 0.9)
+    self.text:SetTextColor(C.COLORS.WHITE.r, C.COLORS.WHITE.g, C.COLORS.WHITE.b)
+  end)
+
+  btn:SetScript("OnLeave", function(self)
+    if self.isExpanded then
+      self.bg:SetColorTexture(0.14, 0.12, 0.05, 1.0)
+      self.border:SetColorTexture(C.COLORS.GOLD.r, C.COLORS.GOLD.g, C.COLORS.GOLD.b, 0.85)
+      self.text:SetTextColor(C.COLORS.GOLD.r, C.COLORS.GOLD.g, C.COLORS.GOLD.b)
+    else
+      self.bg:SetColorTexture(0.07, 0.09, 0.14, 0.95)
+      self.border:SetColorTexture(C.COLORS.CARD_BORDER.r, C.COLORS.CARD_BORDER.g, C.COLORS.CARD_BORDER.b, 0.85)
+      self.text:SetTextColor(C.COLORS.GOLD.r, C.COLORS.GOLD.g, C.COLORS.GOLD.b)
+    end
+  end)
+
+  function btn:SetExpanded(expanded)
+    self.isExpanded = expanded
+    if expanded then
+      self.text:SetText("Less ^")
+      self.bg:SetColorTexture(0.14, 0.12, 0.05, 1.0)
+      self.border:SetColorTexture(C.COLORS.GOLD.r, C.COLORS.GOLD.g, C.COLORS.GOLD.b, 0.85)
+    else
+      self.text:SetText("More v")
+      self.bg:SetColorTexture(0.07, 0.09, 0.14, 0.95)
+      self.border:SetColorTexture(C.COLORS.CARD_BORDER.r, C.COLORS.CARD_BORDER.g, C.COLORS.CARD_BORDER.b, 0.85)
+    end
+  end
+
+  if onClick then
+    btn:SetScript("OnClick", onClick)
+  end
+
+  return btn
 end
 
 -- 4. Scope Filter Toggle Button (Current Character, Alliance, Horde)
@@ -389,10 +460,66 @@ function UILib:CreateCoinDisplay(parent, fontSize)
   return frame
 end
 
+-- 5c. Modal Backdrop Overlay and Click-Outside Dismissal
+function UILib:AttachModalBackdrop(modal, parent, onDismiss)
+  local overlay = CreateFrame("Frame", nil, parent)
+  overlay:SetAllPoints(parent)
+  overlay:SetFrameStrata("DIALOG")
+  overlay:EnableMouse(true)
+  overlay:Hide()
+
+  local overlayBg = overlay:CreateTexture(nil, "BACKGROUND")
+  overlayBg:SetAllPoints()
+  overlayBg:SetColorTexture(0, 0, 0, 0.75)
+  overlay.bg = overlayBg
+
+  -- Screen-wide click-catcher covering UIParent for clicks outside parent frame
+  local screenCatcher = CreateFrame("Button", nil, UIParent)
+  screenCatcher:SetFrameStrata("DIALOG")
+  screenCatcher:SetAllPoints(UIParent)
+  screenCatcher:EnableMouse(true)
+  screenCatcher:RegisterForClicks("AnyDown", "AnyUp")
+  screenCatcher:EnableMouseWheel(true)
+  screenCatcher:Hide()
+
+  local function DismissModal()
+    modal:Hide()
+    if onDismiss then
+      onDismiss(modal)
+    end
+  end
+
+  overlay:SetScript("OnMouseDown", DismissModal)
+  screenCatcher:SetScript("OnMouseDown", DismissModal)
+  screenCatcher:SetScript("OnMouseWheel", DismissModal)
+
+  modal:SetFrameStrata("DIALOG")
+  modal:EnableMouse(true)
+  modal:SetScript("OnMouseDown", function() end)
+
+  modal:HookScript("OnShow", function(self)
+    local baseLevel = (parent:GetFrameLevel() or 10) + 30
+    overlay:SetFrameLevel(baseLevel)
+    screenCatcher:SetFrameLevel(math.max(1, baseLevel - 1))
+    self:SetFrameLevel(baseLevel + 5)
+    overlay:Show()
+    screenCatcher:Show()
+  end)
+
+  modal:HookScript("OnHide", function()
+    overlay:Hide()
+    screenCatcher:Hide()
+  end)
+
+  modal.overlay = overlay
+  modal.screenCatcher = screenCatcher
+  return overlay
+end
+
 -- 6. Confirmation Modal Dialog
-function UILib:CreateConfirmationModal(parent, title, onConfirm)
+function UILib:CreateConfirmationModal(parent, title, onConfirm, frameName)
   local template = BackdropTemplateMixin and "BackdropTemplate" or nil
-  local modal = CreateFrame("Frame", nil, parent, template)
+  local modal = CreateFrame("Frame", frameName, parent, template)
   modal:SetSize(420, 160)
   modal:SetPoint("CENTER", 0, 0)
   modal:SetFrameStrata("DIALOG")
@@ -401,6 +528,12 @@ function UILib:CreateConfirmationModal(parent, title, onConfirm)
   modal:SetBackdropBorderColor(C.COLORS.GOLD_BORDER.r, C.COLORS.GOLD_BORDER.g, C.COLORS.GOLD_BORDER.b, 1)
   modal:EnableMouse(true)
   modal:Hide()
+
+  if frameName and UISpecialFrames then
+    table.insert(UISpecialFrames, frameName)
+  end
+
+  self:AttachModalBackdrop(modal, parent)
 
   local titleText = modal:CreateFontString(nil, "OVERLAY")
   titleText:SetFont(C.FONT_PRIMARY, C.FONT_SIZE_NORMAL, "OUTLINE")
@@ -750,7 +883,7 @@ end
 
 function UILib:CreateExportModal(parent)
   local template = BackdropTemplateMixin and "BackdropTemplate" or nil
-  local modal = CreateFrame("Frame", nil, parent, template)
+  local modal = CreateFrame("Frame", "GoblinJournalExportModal", parent, template)
   modal:SetSize(620, 350)
   modal:SetPoint("CENTER", 0, 0)
   modal:SetFrameStrata("DIALOG")
@@ -759,6 +892,12 @@ function UILib:CreateExportModal(parent)
   modal:SetBackdropBorderColor(C.COLORS.GOLD_BORDER.r, C.COLORS.GOLD_BORDER.g, C.COLORS.GOLD_BORDER.b, 1)
   modal:EnableMouse(true)
   modal:Hide()
+
+  if UISpecialFrames then
+    table.insert(UISpecialFrames, "GoblinJournalExportModal")
+  end
+
+  self:AttachModalBackdrop(modal, parent)
 
   local headerTitle = modal:CreateFontString(nil, "OVERLAY")
   headerTitle:SetFont(C.FONT_PRIMARY, C.FONT_SIZE_NORMAL, "OUTLINE")
@@ -863,7 +1002,7 @@ end
 
 function UILib:CreateActionMenu(parent)
   local template = BackdropTemplateMixin and "BackdropTemplate" or nil
-  local menu = CreateFrame("Frame", nil, parent, template)
+  local menu = CreateFrame("Frame", "GoblinJournalActionMenu", parent, template)
   menu:SetSize(125, 96)
   menu:SetFrameStrata("TOOLTIP")
   menu:SetBackdrop(C.MAIN_BACKDROP)
@@ -871,6 +1010,39 @@ function UILib:CreateActionMenu(parent)
   menu:SetBackdropBorderColor(C.COLORS.GOLD_BORDER.r, C.COLORS.GOLD_BORDER.g, C.COLORS.GOLD_BORDER.b, 1)
   menu:EnableMouse(true)
   menu:Hide()
+
+  if UISpecialFrames then
+    table.insert(UISpecialFrames, "GoblinJournalActionMenu")
+  end
+
+  -- Click-catcher covering UIParent to detect outside clicks
+  local catcher = CreateFrame("Button", nil, UIParent)
+  catcher:SetFrameStrata("TOOLTIP")
+  catcher:SetAllPoints(UIParent)
+  catcher:EnableMouse(true)
+  catcher:RegisterForClicks("AnyDown", "AnyUp")
+  catcher:EnableMouseWheel(true)
+  catcher:Hide()
+  menu.catcher = catcher
+
+  local function DismissMenu()
+    menu:Hide()
+  end
+
+  catcher:SetScript("OnMouseDown", DismissMenu)
+  catcher:SetScript("OnMouseWheel", DismissMenu)
+
+  menu:HookScript("OnShow", function(self)
+    local targetLevel = (parent:GetFrameLevel() or 10) + 50
+    catcher:SetFrameLevel(targetLevel)
+    self:SetFrameLevel(targetLevel + 5)
+    catcher:Show()
+  end)
+
+  menu:HookScript("OnHide", function(self)
+    catcher:Hide()
+    self.currentGoal = nil
+  end)
 
   local btnEdit = self:CreateButton(menu, "Edit Goal", 113, 22)
   btnEdit:SetPoint("TOP", 0, -6)
@@ -882,6 +1054,11 @@ function UILib:CreateActionMenu(parent)
   btnDelete:SetPoint("TOP", btnComplete, "BOTTOM", 0, -4)
 
   function menu:OpenForGoal(goal, anchorBtn, onEdit, onComplete, onDelete)
+    if self:IsShown() and self.currentGoal and self.currentGoal.id == goal.id then
+      self:Hide()
+      return
+    end
+
     self.currentGoal = goal
     self:ClearAllPoints()
 
@@ -921,7 +1098,7 @@ end
 
 function UILib:CreateEditGoalModal(parent, onSave)
   local template = BackdropTemplateMixin and "BackdropTemplate" or nil
-  local modal = CreateFrame("Frame", nil, parent, template)
+  local modal = CreateFrame("Frame", "GoblinJournalEditGoalModal", parent, template)
   modal:SetSize(460, 220)
   modal:SetPoint("CENTER", 0, 0)
   modal:SetFrameStrata("DIALOG")
@@ -930,6 +1107,17 @@ function UILib:CreateEditGoalModal(parent, onSave)
   modal:SetBackdropBorderColor(C.COLORS.GOLD_BORDER.r, C.COLORS.GOLD_BORDER.g, C.COLORS.GOLD_BORDER.b, 1)
   modal:EnableMouse(true)
   modal:Hide()
+
+  if UISpecialFrames then
+    table.insert(UISpecialFrames, "GoblinJournalEditGoalModal")
+  end
+
+  self:AttachModalBackdrop(modal, parent)
+
+  modal:HookScript("OnHide", function(self)
+    if self.inputTitle then self.inputTitle:ClearFocus() end
+    if self.inputAmount then self.inputAmount:ClearFocus() end
+  end)
 
   local titleText = modal:CreateFontString(nil, "OVERLAY")
   titleText:SetFont(C.FONT_PRIMARY, C.FONT_SIZE_NORMAL, "OUTLINE")
@@ -1028,7 +1216,7 @@ end
 
 function UILib:CreateSettingsModal(parent, onSettingChange)
   local template = BackdropTemplateMixin and "BackdropTemplate" or nil
-  local modal = CreateFrame("Frame", nil, parent, template)
+  local modal = CreateFrame("Frame", "GoblinJournalSettingsModal", parent, template)
   modal:SetSize(460, 400)
   modal:SetPoint("CENTER", 0, 0)
   modal:SetFrameStrata("DIALOG")
@@ -1037,6 +1225,12 @@ function UILib:CreateSettingsModal(parent, onSettingChange)
   modal:SetBackdropBorderColor(C.COLORS.GOLD_BORDER.r, C.COLORS.GOLD_BORDER.g, C.COLORS.GOLD_BORDER.b, 1)
   modal:EnableMouse(true)
   modal:Hide()
+
+  if UISpecialFrames then
+    table.insert(UISpecialFrames, "GoblinJournalSettingsModal")
+  end
+
+  self:AttachModalBackdrop(modal, parent)
 
   local titleText = modal:CreateFontString(nil, "OVERLAY")
   titleText:SetFont(C.FONT_PRIMARY, C.FONT_SIZE_NORMAL, "OUTLINE")
@@ -1222,7 +1416,7 @@ end
 
 function UILib:CreateResetModal(parent, onReset)
   local template = BackdropTemplateMixin and "BackdropTemplate" or nil
-  local modal = CreateFrame("Frame", nil, parent, template)
+  local modal = CreateFrame("Frame", "GoblinJournalResetModal", parent, template)
   modal:SetSize(450, 240)
   modal:SetPoint("CENTER", 0, 0)
   modal:SetFrameStrata("DIALOG")
@@ -1231,6 +1425,12 @@ function UILib:CreateResetModal(parent, onReset)
   modal:SetBackdropBorderColor(C.COLORS.GOLD_BORDER.r, C.COLORS.GOLD_BORDER.g, C.COLORS.GOLD_BORDER.b, 1)
   modal:EnableMouse(true)
   modal:Hide()
+
+  if UISpecialFrames then
+    table.insert(UISpecialFrames, "GoblinJournalResetModal")
+  end
+
+  self:AttachModalBackdrop(modal, parent)
 
   local titleText = modal:CreateFontString(nil, "OVERLAY")
   titleText:SetFont(C.FONT_PRIMARY, C.FONT_SIZE_NORMAL, "OUTLINE")
